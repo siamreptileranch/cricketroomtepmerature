@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SRR — Cricket Room Temperature</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;500&display=swap');
+:root{
+  --fb-blue:#1877f2;--fb-blue-dk:#166fe5;--fb-blue-lt:#e7f3ff;
+  --fb-bg:#f0f2f5;--fb-surface:#fff;--fb-border:#dde1e7;
+  --fb-text:#050505;--fb-muted:#65676b;--fb-hover:#f2f2f2;
+  --fb-green:#42b72a;--fb-red:#fa3e3e;--fb-amber:#f7b928;
+  --r:8px;--font:-apple-system,'Segoe UI',Helvetica,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--fb-bg);color:var(--fb-text);font-family:var(--font);font-size:15px;min-height:100vh}
+
+/* ── TOP NAV ── */
+.fb-nav{background:var(--fb-surface);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;box-shadow:0 2px 4px rgba(0,0,0,.1);position:sticky;top:0;z-index:200}
+.nav-left{display:flex;align-items:center;gap:8px}
+.nav-logo{background:var(--fb-blue);color:#fff;font-weight:700;font-size:22px;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;letter-spacing:-1px;flex-shrink:0}
+.nav-search{background:var(--fb-bg);border:none;border-radius:20px;padding:8px 16px;font-size:15px;color:var(--fb-text);width:240px;font-family:var(--font);outline:none}
+.nav-search::placeholder{color:var(--fb-muted)}
+.nav-center{display:flex;align-items:center;gap:2px}
+.nav-tab{padding:0 24px;height:48px;display:flex;align-items:center;border-radius:var(--r);cursor:pointer;color:var(--fb-muted);font-size:13px;font-weight:600;letter-spacing:.02em;border:none;background:transparent;font-family:var(--font);transition:background .15s;border-bottom:3px solid transparent}
+.nav-tab:hover{background:var(--fb-hover)}
+.nav-tab.active{color:var(--fb-blue);border-bottom-color:var(--fb-blue)}
+.nav-right{display:flex;align-items:center;gap:8px}
+.nav-icon-btn{width:40px;height:40px;border-radius:50%;background:var(--fb-bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--fb-text);transition:background .15s}
+.nav-icon-btn:hover{background:var(--fb-border)}
+.nav-avatar{width:40px;height:40px;border-radius:50%;background:var(--fb-blue);color:#fff;font-weight:700;font-size:15px;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+.sync-pill{font-size:12px;padding:4px 10px;border-radius:20px;font-weight:600;display:flex;align-items:center;gap:5px}
+.sync-pill.ok{background:#e6f4ea;color:#1a5c0c}
+.sync-pill.err{background:#fde8e8;color:#8c1c1c}
+.sync-pill.sending{background:var(--fb-blue-lt);color:#0c447c}
+
+/* ── LAYOUT ── */
+.fb-layout{max-width:760px;margin:0 auto;padding:16px}
+
+/* Room status pills */
+.room-status{display:flex;flex-direction:column;gap:3px}
+.rs-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--fb-muted)}
+.rs-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.rs-ok{background:#e6f4ea;color:#1a5c0c}
+.rs-hot{background:#fde8e8;color:#8c1c1c}
+.rs-cold{background:#fff3cd;color:#856404}
+
+/* ── MAIN FEED ── */
+.feed{display:flex;flex-direction:column;gap:16px}
+
+/* Story-style quick stats */
+.story-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.story-card{background:var(--fb-surface);border-radius:var(--r);padding:14px;box-shadow:0 1px 2px rgba(0,0,0,.1);text-align:center;cursor:default}
+.story-icon{font-size:22px;margin-bottom:4px}
+.story-val{font-size:22px;font-weight:700;color:var(--fb-text);line-height:1}
+.story-val.blue{color:var(--fb-blue)}.story-val.green{color:var(--fb-green)}.story-val.red{color:var(--fb-red)}.story-val.amber{color:var(--fb-amber)}
+.story-label{font-size:12px;color:var(--fb-muted);margin-top:2px}
+
+/* Post-style cards */
+.post-card{background:var(--fb-surface);border-radius:var(--r);box-shadow:0 1px 2px rgba(0,0,0,.1);overflow:hidden}
+.post-header{display:flex;align-items:center;gap:10px;padding:12px 16px 0}
+.post-avatar{width:40px;height:40px;border-radius:50%;background:var(--fb-blue);color:#fff;font-weight:700;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.post-meta{flex:1}
+.post-title{font-weight:600;font-size:15px;color:var(--fb-text)}
+.post-sub{font-size:13px;color:var(--fb-muted)}
+.post-body{padding:12px 16px}
+.post-divider{height:1px;background:var(--fb-border);margin:0 16px}
+.post-actions{display:flex;padding:4px 8px}
+.post-action-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:8px;border-radius:var(--r);border:none;background:transparent;font-size:14px;font-weight:600;color:var(--fb-muted);cursor:pointer;font-family:var(--font);transition:background .1s}
+.post-action-btn:hover{background:var(--fb-hover)}
+.post-action-btn.primary{color:var(--fb-blue)}
+
+/* FORM inside post */
+.fb-label{font-size:13px;font-weight:600;color:var(--fb-muted);margin-bottom:4px;letter-spacing:.01em}
+.fb-input{width:100%;background:var(--fb-bg);border:1.5px solid var(--fb-border);border-radius:var(--r);padding:10px 14px;font-size:15px;font-family:var(--font);color:var(--fb-text);outline:none;transition:border-color .15s}
+.fb-input:focus{border-color:var(--fb-blue);background:#fff}
+.fb-input.hot{border-color:var(--fb-red);background:#fff0f0}
+.fb-input.cold{border-color:var(--fb-amber);background:#fffbf0}
+.fb-input.tempok{border-color:var(--fb-green)}
+.fb-select{width:100%;background:var(--fb-bg);border:1.5px solid var(--fb-border);border-radius:var(--r);padding:10px 14px;font-size:15px;font-family:var(--font);color:var(--fb-text);outline:none;cursor:pointer}
+.fb-select:focus{border-color:var(--fb-blue)}
+.fb-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.fb-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.fb-field{display:flex;flex-direction:column;gap:5px}
+
+/* Toggle */
+.fb-toggle{display:flex;border-radius:var(--r);overflow:hidden;border:1.5px solid var(--fb-border)}
+.fb-toggle-btn{flex:1;padding:9px;border:none;background:var(--fb-bg);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .1s;color:var(--fb-muted)}
+.fb-toggle-btn.on{background:var(--fb-green);color:#fff;border-color:var(--fb-green)}
+.fb-toggle-btn.off{background:var(--fb-red);color:#fff}
+
+/* Alert banner */
+.fb-alert{border-radius:var(--r);padding:10px 14px;font-size:14px;font-weight:500;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.fb-alert.normal{background:#e6f4ea;color:#1a5c0c}
+.fb-alert.hot{background:#fde8e8;color:#8c1c1c}
+.fb-alert.cold{background:#fff3cd;color:#856404}
+
+/* FB blue button */
+.fb-btn{background:var(--fb-blue);color:#fff;border:none;border-radius:var(--r);padding:10px 20px;font-size:15px;font-weight:600;font-family:var(--font);cursor:pointer;transition:background .15s;display:inline-flex;align-items:center;gap:6px}
+.fb-btn:hover{background:var(--fb-blue-dk)}
+.fb-btn:disabled{opacity:.5;cursor:not-allowed}
+.fb-btn-ghost{background:var(--fb-bg);color:var(--fb-text);border:none;border-radius:var(--r);padding:10px 16px;font-size:15px;font-weight:600;font-family:var(--font);cursor:pointer;transition:background .15s}
+.fb-btn-ghost:hover{background:var(--fb-border)}
+.fb-btn-sm{font-size:13px;padding:6px 14px;border-radius:6px}
+
+/* Table */
+.fb-table{width:100%;border-collapse:collapse;font-size:14px}
+.fb-table th{background:var(--fb-bg);color:var(--fb-muted);font-size:12px;font-weight:700;letter-spacing:.04em;padding:10px 12px;text-align:left;border-bottom:1px solid var(--fb-border);white-space:nowrap}
+.fb-table td{padding:10px 12px;border-bottom:1px solid var(--fb-bg);color:var(--fb-text);white-space:nowrap}
+.fb-table tr:hover td{background:var(--fb-bg)}
+.fb-table tr:last-child td{border-bottom:none}
+td.thot{color:var(--fb-red);font-weight:700}
+td.tcold{color:var(--fb-amber);font-weight:700}
+td.tok{color:var(--fb-green);font-weight:700}
+.fb-badge{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px}
+.fb-badge-on{background:#e6f4ea;color:#1a5c0c}
+.fb-badge-off{background:var(--fb-bg);color:var(--fb-muted);border:1px solid var(--fb-border)}
+
+/* Chart */
+.chart-wrap{position:relative;height:200px;margin-top:8px}
+
+/* Date filter row */
+.filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.filter-row label{font-size:13px;color:var(--fb-muted);font-weight:600}
+.fb-date{background:var(--fb-bg);border:1.5px solid var(--fb-border);border-radius:var(--r);padding:7px 12px;font-size:14px;font-family:var(--font);color:var(--fb-text);outline:none}
+.fb-date:focus{border-color:var(--fb-blue)}
+
+/* Toast */
+.fb-toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--fb-text);color:#fff;padding:12px 20px;border-radius:var(--r);font-size:14px;font-weight:500;opacity:0;transition:all .25s;z-index:999;pointer-events:none;box-shadow:0 4px 12px rgba(0,0,0,.25);white-space:nowrap}
+.fb-toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* Clock */
+.nav-clock{font-size:12px;color:var(--fb-muted);white-space:nowrap}
+
+@media(max-width:700px){
+  .fb-layout{grid-template-columns:1fr;padding:8px}
+  .sidebar{display:none}
+  .story-row{grid-template-columns:1fr 1fr}
+  .fb-grid-3{grid-template-columns:1fr 1fr}
+  .nav-search{display:none}
+  .nav-center{display:none}
+  .nav-clock{font-size:12px;color:var(--fb-muted);white-space:nowrap}
+}
+/* AC unit cards */
+.ac-card{background:var(--fb-bg);border:2px solid var(--fb-border);border-radius:var(--r);padding:10px;transition:border-color .15s,background .15s}
+.ac-card.on{border-color:#1877f2;background:#e7f3ff}
+.ac-card.off{border-color:#fa3e3e;background:#fde8e8;opacity:.8}
+.ac-unit-label{font-size:12px;font-weight:700;color:var(--fb-muted);margin-bottom:7px;letter-spacing:.03em}
+.ac-toggle{display:flex;gap:4px;margin-bottom:8px}
+.ac-toggle-btn{flex:1;padding:5px 4px;border-radius:5px;border:1.5px solid var(--fb-border);background:#fff;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font);transition:all .1s}
+.ac-toggle-btn.on{background:#1877f2;border-color:#1877f2;color:#fff}
+.ac-toggle-btn.off{background:#fa3e3e;border-color:#fa3e3e;color:#fff}
+.ac-temp-wrap{display:flex;align-items:center;gap:5px}
+.ac-temp-label{font-size:10px;color:var(--fb-muted);white-space:nowrap}
+.ac-temp-input{width:100%;background:#fff;border:1.5px solid var(--fb-border);border-radius:5px;padding:4px 7px;font-size:13px;font-weight:700;font-family:var(--font);color:var(--fb-text);text-align:center;outline:none}
+.ac-temp-input:focus{border-color:#1877f2}
+@keyframes pulse-blue{0%,100%{box-shadow:0 0 0 0 rgba(24,119,242,.4)}50%{box-shadow:0 0 0 7px rgba(24,119,242,0)}}
+</style>
+</head>
+<body>
+
+<!-- ── TOP NAV ── -->
+<nav class="fb-nav">
+  <div class="nav-left">
+    <div class="nav-logo">S</div>
+    <input class="nav-search" placeholder="🔍 Search SRR..." readonly>
+  </div>
+  <div class="nav-center">
+    <button class="nav-tab active" onclick="showPage('entry')">📋 Log Entry</button>
+    <button class="nav-tab" onclick="showPage('history')">🕐 History</button>
+    <button class="nav-tab" onclick="showPage('graphs')">📈 Graphs</button>
+  </div>
+  <div class="nav-right">
+    <span class="sync-pill ok" id="sync-pill">● Connected</span>
+    <button onclick="exportCSV()" style="background:var(--fb-bg);border:1px solid var(--fb-border);border-radius:6px;padding:5px 11px;font-size:12px;font-weight:600;cursor:pointer;color:var(--fb-muted);font-family:var(--font)">⬇ CSV</button>
+    <span class="nav-clock" id="clock"></span>
+    <div class="nav-avatar">SR</div>
+  </div>
+</nav>
+
+<!-- ── INFO BAR ── -->
+<div style="background:var(--fb-surface);border-bottom:1px solid var(--fb-border);padding:8px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:12px">
+  <div style="display:flex;align-items:center;gap:6px;font-weight:700;color:var(--fb-muted);white-space:nowrap">🌡️ TARGET RANGE:</div>
+  <span style="background:#fde8e8;color:#8c1c1c;padding:2px 9px;border-radius:10px;font-weight:700;font-size:11px">🔴 &gt;34°C — A/C ON</span>
+  <span style="background:#fff3cd;color:#856404;padding:2px 9px;border-radius:10px;font-weight:700;font-size:11px">🟡 &lt;32°C — Heater ON</span>
+  <span style="background:#e6f4ea;color:#1a5c0c;padding:2px 9px;border-radius:10px;font-weight:700;font-size:11px">✅ 32–34°C Normal</span>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap" id="top-alerts"></div>
+</div>
+
+<!-- ── MAIN LAYOUT ── -->
+<div class="fb-layout">
+
+  <!-- MAIN FEED -->
+  <main class="feed" id="main-feed">
+
+    <!-- ══ LOG ENTRY PAGE ══ -->
+    <div id="page-entry">
+
+      <!-- Stats row (story-style) -->
+      <div class="story-row" id="stat-cards">
+        <div class="story-card"><div class="story-icon">🌡️</div><div class="story-val blue" id="sc-latest">—</div><div class="story-label">Latest temp</div></div>
+        <div class="story-card"><div class="story-icon">💧</div><div class="story-val" id="sc-hum">—</div><div class="story-label">Humidity</div></div>
+        <div class="story-card"><div class="story-icon">📊</div><div class="story-val" id="sc-today">0</div><div class="story-label">Readings today</div></div>
+        <div class="story-card"><div class="story-icon">⚠️</div><div class="story-val red" id="sc-alerts">0</div><div class="story-label">Alerts today</div></div>
+      </div>
+
+      <!-- Log entry post card -->
+      <div class="post-card">
+        <div class="post-header">
+          <div class="post-avatar">CR</div>
+          <div class="post-meta">
+            <div class="post-title">Cricket Room — Temperature Reading</div>
+            <div class="post-sub" id="form-subtitle">Log a new entry</div>
+          </div>
+        </div>
+        <div class="post-body">
+          <div id="temp-alert" class="fb-alert normal">✅ Temperature normal — no action required</div>
+
+          <!-- Schedule reminder banner -->
+          <div id="schedule-banner" style="border-radius:8px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:600;border:2px solid #dde1e7;background:#f0f2f5">
+            <span id="schedule-icon" style="font-size:20px;flex-shrink:0">🕐</span>
+            <div style="flex:1;min-width:0">
+              <div id="schedule-msg" style="color:#050505">Loading schedule…</div>
+              <div id="schedule-my" style="font-size:11px;font-weight:400;margin-top:2px;color:#65676b;opacity:.9"></div>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;flex-shrink:0" id="schedule-chips"></div>
+          </div>
+
+          <div class="fb-grid-2">
+            <div class="fb-field">
+              <div class="fb-label">Date ရက်စွဲ <span style="font-size:11px;color:var(--fb-muted);font-weight:400">(auto)</span></div>
+              <div class="fb-input" style="background:#f0f2f5;font-weight:600;display:flex;align-items:center;gap:6px;cursor:default;color:var(--fb-text)">📅 <span id="f-date-display"></span></div>
+              <input type="hidden" id="f-date">
+            </div>
+            <div class="fb-field">
+              <div class="fb-label">Time အချိန် <span style="font-size:11px;color:var(--fb-muted);font-weight:400">(auto)</span></div>
+              <div class="fb-input" style="background:#f0f2f5;font-weight:600;display:flex;align-items:center;gap:6px;cursor:default;color:var(--fb-text)">⏰ <span id="f-time-display"></span></div>
+              <input type="hidden" id="f-time">
+            </div>
+          </div>
+
+          <div class="fb-grid-2">
+            <div class="fb-field"><div class="fb-label">Middle temp °C <span style="color:var(--fb-muted);font-weight:400">(target 32–34)</span></div><input type="number" class="fb-input" id="f-temp" placeholder="e.g. 33.2" step="0.1" min="20" max="50" oninput="checkTemp(this)"></div>
+            <div class="fb-field"><div class="fb-label">Middle humidity % <span style="color:var(--fb-muted);font-weight:400">(target 60–80)</span></div><input type="number" class="fb-input" id="f-hum" placeholder="e.g. 70" step="1" min="0" max="100"></div>
+          </div>
+
+          <div class="fb-grid-2">
+            <div class="fb-field"><div class="fb-label">Outside temp °C</div><input type="number" class="fb-input" id="f-out-temp" placeholder="e.g. 36" step="0.1"></div>
+            <div class="fb-field"><div class="fb-label">Outside humidity %</div><input type="number" class="fb-input" id="f-out-hum" placeholder="e.g. 82" step="1"></div>
+          </div>
+
+          <!-- 6 AC UNITS -->
+          <div class="fb-label" style="margin-bottom:8px;margin-top:4px">❄️ Air Conditioners — လေအေးပေးစက် (6 units)</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px" id="ac-units">
+            <!-- rendered by JS -->
+          </div>
+
+
+          <div class="fb-grid-3">
+            <div class="fb-field"><div class="fb-label">Heater front ရှေ့</div>
+              <div class="fb-toggle">
+                <button class="fb-toggle-btn" id="hf-on" onclick="setToggle('hf','on')">ON</button>
+                <button class="fb-toggle-btn" id="hf-off" onclick="setToggle('hf','off')">OFF</button>
+              </div>
+            </div>
+            <div class="fb-field"><div class="fb-label">Heater back နောက်</div>
+              <div class="fb-toggle">
+                <button class="fb-toggle-btn" id="hb-on" onclick="setToggle('hb','on')">ON</button>
+                <button class="fb-toggle-btn" id="hb-off" onclick="setToggle('hb','off')">OFF</button>
+              </div>
+            </div>
+            <div class="fb-field"><div class="fb-label">Fans ပန်ကာ</div>
+              <div class="fb-toggle">
+                <button class="fb-toggle-btn" id="fan-on" onclick="setToggle('fan','on')">ON</button>
+                <button class="fb-toggle-btn" id="fan-off" onclick="setToggle('fan','off')">OFF</button>
+              </div>
+            </div>
+          </div>
+          <div class="fb-grid-3" style="margin-top:-4px">
+            <div class="fb-field"><div class="fb-label">Dehumidifier စိုထိုင်းဆ</div>
+              <div class="fb-toggle">
+                <button class="fb-toggle-btn" id="dehum-on" onclick="setToggle('dehum','on')">ON</button>
+                <button class="fb-toggle-btn" id="dehum-off" onclick="setToggle('dehum','off')">OFF</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="post-divider"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px">
+          <button class="fb-btn-ghost fb-btn-sm" onclick="clearForm()">Clear form</button>
+          <button class="fb-btn" id="submit-btn" onclick="submitEntry()">💾 Save to Google Sheet</button>
+        </div>
+      </div>
+
+      <!-- Today's readings mini feed -->
+      <div class="post-card">
+        <div class="post-header" style="padding-bottom:12px">
+          <div class="post-avatar" style="background:#42b72a">✓</div>
+          <div class="post-meta">
+            <div class="post-title" id="today-title">Today's readings</div>
+            <div class="post-sub">All entries logged today</div>
+          </div>
+          <button class="fb-btn fb-btn-sm" onclick="loadTodayReadings()" style="margin-left:auto;font-size:13px">↻ Refresh</button>
+        </div>
+        <div class="post-body" id="today-body" style="padding-top:0">
+          <div style="color:var(--fb-muted);font-size:14px">Refreshing…</div>
+        </div>
+      </div>
+
+    </div><!-- /page-entry -->
+
+    <!-- ══ HISTORY PAGE ══ -->
+    <div id="page-history" style="display:none">
+      <div class="post-card">
+        <div class="post-header" style="padding-bottom:12px">
+          <div class="post-avatar" style="background:#f7b928">📅</div>
+          <div class="post-meta"><div class="post-title">Daily summary</div><div class="post-sub">One row per day — min/max/avg</div></div>
+        </div>
+        <div class="post-body" style="padding-top:0" id="daily-history-wrap">
+          <div style="text-align:center;color:var(--fb-muted);padding:16px">Loading…</div>
+        </div>
+      </div>
+
+      <div class="post-card">
+        <div class="post-header" style="padding-bottom:12px">
+          <div class="post-avatar" style="background:#65676b">🕐</div>
+          <div class="post-meta"><div class="post-title">Temperature history</div><div class="post-sub">All readings from Google Sheet</div></div>
+        </div>
+        <div class="post-body" style="padding-top:0">
+          <div class="filter-row">
+            <label>From</label><input type="date" class="fb-date" id="hist-from">
+            <label>To</label><input type="date" class="fb-date" id="hist-to">
+            <button class="fb-btn fb-btn-sm" onclick="loadHistory()">Filter</button>
+            <button class="fb-btn-ghost fb-btn-sm" onclick="clearHistFilter()">All</button>
+            <button class="fb-btn fb-btn-sm" onclick="exportCSV()" style="margin-left:auto;background:#42b72a">⬇ Export CSV</button>
+          </div>
+
+          <div class="story-row" style="margin-bottom:12px" id="hist-stats"></div>
+
+          <div style="overflow-x:auto">
+            <table class="fb-table"><thead><tr>
+              <th>Date</th><th>Time</th><th>Temp °C</th><th>Hum %</th>
+              <th>Out °C</th><th>Out %</th><th>A/C On</th><th>A/C Off</th>
+              <th>Htr Front</th><th>Htr Back</th><th>Dehum</th><th>Fans</th>
+            </tr></thead><tbody id="hist-tbody">
+              <tr><td colspan="12" style="text-align:center;color:var(--fb-muted);padding:20px">Loading…</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ GRAPHS PAGE ══ -->
+    <div id="page-graphs" style="display:none">
+      <div class="story-row" style="margin-bottom:0" id="graph-stats"></div>
+
+      <div class="post-card">
+        <div class="post-header" style="padding-bottom:0">
+          <div class="post-avatar" style="background:#f7b928">📈</div>
+          <div class="post-meta"><div class="post-title">Temperature over time (°C)</div></div>
+          <div style="display:flex;gap:4px;margin-left:auto">
+            <button class="fb-btn-ghost fb-btn-sm" id="gf-7"  onclick="setDays(7)"  style="font-size:12px">7d</button>
+            <button class="fb-btn fb-btn-sm"       id="gf-14" onclick="setDays(14)" style="font-size:12px">14d</button>
+            <button class="fb-btn-ghost fb-btn-sm" id="gf-30" onclick="setDays(30)" style="font-size:12px">30d</button>
+            <button class="fb-btn-ghost fb-btn-sm" id="gf-0"  onclick="setDays(0)"  style="font-size:12px">All</button>
+          </div>
+        </div>
+        <div class="post-body"><div class="chart-wrap"><canvas id="chart-temp"></canvas></div></div>
+      </div>
+
+      <div class="post-card">
+        <div class="post-header" style="padding-bottom:0"><div class="post-avatar" style="background:#1877f2">💧</div><div class="post-meta"><div class="post-title">Humidity over time (%)</div></div></div>
+        <div class="post-body"><div class="chart-wrap"><canvas id="chart-hum"></canvas></div></div>
+      </div>
+
+      <div class="post-card">
+        <div class="post-header" style="padding-bottom:0"><div class="post-avatar" style="background:#e67e22">🌡️</div><div class="post-meta"><div class="post-title">Inside vs outside temperature</div></div></div>
+        <div class="post-body"><div class="chart-wrap"><canvas id="chart-compare"></canvas></div></div>
+      </div>
+
+      <div class="post-card">
+        <div class="post-header" style="padding-bottom:0"><div class="post-avatar" style="background:#8e44ad">⏰</div><div class="post-meta"><div class="post-title">Average temperature by hour</div><div class="post-sub">All-time average per hour of day</div></div></div>
+        <div class="post-body"><div class="chart-wrap"><canvas id="chart-hourly"></canvas></div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div class="fb-toast" id="toast"></div>
+
+<script>
+var SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwTAst9AuXx7w70GjmBp1INN0VZZYTlHdzNOflELg33eX0zD0_MzObt0SIr9qe8Q4Phzg/exec';
+var toggleState = {dehum:'',hf:'',hb:'',fan:''};
+var graphDays = 14;
+var charts = {};
+var allData = [];
+
+// ── LIVE SYNC / RELIABILITY ─────────────────────────────────────
+// This app previously had NO local persistence at all — if a submit
+// failed (offline, spotty WiFi), the reading was lost outright. It also
+// auto-cleared the form after every save, and never refreshed on its own.
+// These are declared up top (before anything runs) to avoid the classic
+// "used before assigned" ordering bug.
+var POLL_MS = 20000;
+var currentPage = 'entry';
+var PENDING_KEY = 'srr_crix_pending';   // entries not yet confirmed synced
+var LAST_ENTRY_KEY = 'srr_crix_last_entry'; // last submitted values, for prefill
+
+function pad(n){return String(n).padStart(2,'0');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function loadPending(){
+  try{ var d = localStorage.getItem(PENDING_KEY); return d ? JSON.parse(d) : []; }
+  catch(e){ return []; }
+}
+function savePending(arr){ localStorage.setItem(PENDING_KEY, JSON.stringify(arr)); }
+
+function saveLastEntry(entry){ localStorage.setItem(LAST_ENTRY_KEY, JSON.stringify(entry)); }
+function loadLastEntry(){
+  try{ var d = localStorage.getItem(LAST_ENTRY_KEY); return d ? JSON.parse(d) : null; }
+  catch(e){ return null; }
+}
+
+// Clock
+function tick(){
+  var n=new Date();
+  document.getElementById('clock').textContent=n.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})+' · '+pad(n.getHours())+':'+pad(n.getMinutes())+':'+pad(n.getSeconds());
+}
+setInterval(tick,1000); tick();
+
+// ── AC UNITS ──────────────────────────────────────────────────
+var acState = [
+  {status:'',temp:''},
+  {status:'',temp:''},
+  {status:'',temp:''},
+  {status:'',temp:''},
+  {status:'',temp:''},
+  {status:'',temp:''},
+];
+
+function renderACUnits(){
+  var container = document.getElementById('ac-units');
+  if(!container) return;
+  var html = '';
+  for(var i=0;i<6;i++){
+    var s = acState[i];
+    var cardCls = s.status==='on'?'on':s.status==='off'?'off':'';
+    html += '<div class="ac-card '+cardCls+'" id="ac-card-'+i+'">'
+      + '<div class="ac-unit-label">❄️ A/C Unit '+(i+1)+' <span style="font-size:10px;font-weight:400">(လေအေးပေးစက် '+(i+1)+')</span></div>'
+      + '<div class="ac-toggle">'
+      + '<button type="button" class="ac-toggle-btn'+(s.status==='on'?' on':'')+'" onclick="setAC('+i+',\'on\')">ON ဖွင့်</button>'
+      + '<button type="button" class="ac-toggle-btn'+(s.status==='off'?' off':'')+'" onclick="setAC('+i+',\'off\')">OFF ပိတ်</button>'
+      + '</div>'
+      + '<div class="ac-temp-wrap">'
+      + '<span class="ac-temp-label">Set temp °C</span>'
+      + '<input class="ac-temp-input" type="number" id="ac-temp-'+i+'" min="16" max="30" step="1" placeholder="e.g. 25" value="'+(s.temp||'')+'" oninput="acState['+i+'].temp=this.value">'
+      + '</div>'
+      + '</div>';
+  }
+  container.innerHTML = html;
+}
+
+function setAC(idx, status){
+  acState[idx].status = acState[idx].status === status ? '' : status;
+  renderACUnits();
+}
+
+function getACSummary(){
+  var parts = acState.map(function(s,i){
+    var t = s.temp ? ' @'+s.temp+'°C' : '';
+    return 'Unit '+(i+1)+': '+(s.status?s.status.toUpperCase():'—')+t;
+  });
+  return parts.join(' | ');
+}
+
+function getACOnCount(){  return acState.filter(function(s){return s.status==='on';}).length; }
+function getACOffCount(){ return acState.filter(function(s){return s.status==='off';}).length; }
+
+// Initialise AC grid
+renderACUnits();
+
+
+var CHECK_TIMES = [
+  {h:7,  label:'07:00 AM', my:'မနက် ၇ နာရီ'},
+  {h:9,  label:'09:00 AM', my:'မနက် ၉ နာရီ'},
+  {h:11, label:'11:00 AM', my:'မနက် ၁၁ နာရီ'},
+  {h:13, label:'01:00 PM', my:'မွန်းလွဲ ၁ နာရီ'},
+  {h:15, label:'03:00 PM', my:'မွန်းလွဲ ၃ နာရီ'},
+  {h:17, label:'05:00 PM', my:'ညနေ ၅ နာရီ'},
+];
+
+function updateDateTime(){
+  var n      = new Date();
+  var date   = n.toISOString().slice(0,10);
+  var hh     = pad(n.getHours()), mm = pad(n.getMinutes());
+  var time   = hh+':'+mm;
+  var days   = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var dateLbl= days[n.getDay()]+' '+n.getDate()+' '+months[n.getMonth()]+' '+n.getFullYear();
+  document.getElementById('f-date').value = date;
+  document.getElementById('f-time').value = time;
+  var dd=document.getElementById('f-date-display'); if(dd) dd.textContent=dateLbl;
+  var td=document.getElementById('f-time-display'); if(td) td.textContent=time;
+
+  // Schedule banner
+  var curH=n.getHours(), curM=n.getMinutes();
+  var banner=document.getElementById('schedule-banner');
+  var icon=document.getElementById('schedule-icon');
+  var msgEl=document.getElementById('schedule-msg');
+  var myEl=document.getElementById('schedule-my');
+  var chips=document.getElementById('schedule-chips');
+  if(!banner) return;
+
+  var chipsHtml='';
+  CHECK_TIMES.forEach(function(ct){
+    var passed=curH>ct.h||(curH===ct.h&&curM>=30);
+    var active=curH===ct.h&&curM<30;
+    var bg=passed?'#d1fae5':active?'#1877f2':'#f0f2f5';
+    var color=passed?'#1a5c0c':active?'#fff':'#65676b';
+    var border=active?'#1877f2':passed?'#42b72a':'#dde1e7';
+    chipsHtml+='<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;background:'+bg+';color:'+color+';border:1.5px solid '+border+'">'+(passed?'✓ ':active?'▶ ':'')+ct.label+'</span>';
+  });
+  if(chips) chips.innerHTML=chipsHtml;
+
+  var isCheckTime=false, isComingUp=false, checkItem=null, nextCheck=null;
+  for(var i=0;i<CHECK_TIMES.length;i++){
+    var ch=CHECK_TIMES[i].h;
+    if(curH===ch&&curM<30){ isCheckTime=true; checkItem=CHECK_TIMES[i]; break; }
+    if(curH===ch-1&&curM>=30){ isComingUp=true; checkItem=CHECK_TIMES[i]; break; }
+  }
+  if(!isCheckTime&&!isComingUp){
+    for(var i=0;i<CHECK_TIMES.length;i++){
+      if(curH<CHECK_TIMES[i].h||(curH===CHECK_TIMES[i].h&&curM<30)){ nextCheck=CHECK_TIMES[i]; break; }
+    }
+  }
+
+  if(isCheckTime){
+    banner.style.cssText='border-radius:8px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:600;border:2px solid #1877f2;background:#e7f3ff;animation:pulse-blue 2s infinite';
+    icon.textContent='🔔';
+    msgEl.style.color='#1877f2'; msgEl.textContent='Time to check! Log the cricket room temperature now.';
+    myEl.style.color='#1877f2'; myEl.textContent=' အပူချိန်စစ်ဆေးရမည့်အချိန်ရောက်ပါပြီ။ ယခုမှတ်တမ်းတင်ပါ။';
+  } else if(isComingUp){
+    banner.style.cssText='border-radius:8px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:600;border:2px solid #f7b928;background:#fff3cd';
+    icon.textContent='⏰';
+    msgEl.style.color='#856404'; msgEl.textContent='Next check at '+checkItem.label+' — coming up in ~30 min. Get ready!';
+    myEl.style.color='#856404'; myEl.textContent='ခဏနေ '+checkItem.my+' တွင် စစ်ဆေးရမည်။ အသင့်ပြင်ပါ။';
+  } else if(nextCheck){
+    var minsUntil=(nextCheck.h*60)-(curH*60+curM);
+    var hoursUntil=Math.floor(minsUntil/60), minsRem=minsUntil%60;
+    var untilStr=hoursUntil>0?hoursUntil+'h '+minsRem+'m':minsRem+'m';
+    banner.style.cssText='border-radius:8px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:600;border:2px solid #dde1e7;background:#f0f2f5';
+    icon.textContent='🕐';
+    msgEl.style.color='#050505'; msgEl.textContent='Next check: '+nextCheck.label+' (in '+untilStr+')';
+    myEl.style.color='#65676b'; myEl.textContent='နောက်စစ်ဆေးမည့်အချိန် — '+nextCheck.my;
+  } else {
+    banner.style.cssText='border-radius:8px;padding:11px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:13px;font-weight:600;border:2px solid #42b72a;background:#e6f4ea';
+    icon.textContent='✅';
+    msgEl.style.color='#1a5c0c'; msgEl.textContent='All checks complete for today! Great work.';
+    myEl.style.color='#1a5c0c'; myEl.textContent='ယနေ့ စစ်ဆေးမှုအားလုံးပြီးဆုံးပါပြီ။ ကောင်းပါတယ်!';
+  }
+}
+updateDateTime();
+setInterval(updateDateTime, 60000);
+
+function showToast(msg){
+  var t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(function(){t.classList.remove('show');},2500);
+}
+
+function setSyncStatus(cls,label){
+  var el=document.getElementById('sync-pill');
+  el.className='sync-pill '+cls;
+  el.textContent='● '+label;
+}
+
+// Page switching
+function showPage(page){
+  currentPage = page;
+  ['entry','history','graphs'].forEach(function(p){
+    document.getElementById('page-'+p).style.display=p===page?'flex':'none';
+    document.getElementById('page-'+p).style.flexDirection='column';
+    document.getElementById('page-'+p).style.gap='16px';
+  });
+  document.querySelectorAll('.nav-tab').forEach(function(el,i){
+    el.classList.toggle('active',['entry','history','graphs'][i]===page);
+  });
+  document.querySelectorAll('.sidebar-item').forEach(function(el,i){
+    el.classList.toggle('active',[0,1,2].indexOf(i)>=0&&['entry','history','graphs'][i]===page);
+  });
+  if(page==='history'){ loadHistory(); loadDailyHistory(); }
+  if(page==='graphs')  renderGraphs();
+}
+
+// Refreshes whichever page is currently visible — used by the live poller
+// and by the resume/reconnect listeners below, so every device converges
+// on the same data without anyone needing to tap "Refresh" manually.
+function refreshCurrentPage(){
+  if(currentPage==='entry')   loadTodayReadings();
+  if(currentPage==='history'){ loadHistory(); loadDailyHistory(); }
+  if(currentPage==='graphs')  renderGraphs();
+}
+
+function startLivePolling(){
+  retryPending();
+  setInterval(function(){
+    refreshCurrentPage();
+    retryPending();
+  }, POLL_MS);
+
+  // Mobile browsers throttle/pause timers when backgrounded or the phone
+  // is locked, so the poll above can silently stall. Catch up immediately
+  // the moment the app becomes active again or connectivity returns.
+  document.addEventListener('visibilitychange', function(){
+    if(document.visibilityState==='visible'){ refreshCurrentPage(); retryPending(); }
+  });
+  window.addEventListener('focus', function(){ refreshCurrentPage(); retryPending(); });
+  window.addEventListener('online', function(){ refreshCurrentPage(); retryPending(); });
+}
+
+// Temp check
+function checkTemp(input){
+  var v=parseFloat(input.value);
+  var al=document.getElementById('temp-alert');
+  input.className='fb-input';
+  if(!input.value){al.className='fb-alert normal';al.textContent='— Enter temperature to check range';return;}
+  if(v>34){input.classList.add('hot');al.className='fb-alert hot';al.textContent='🔴 TOO HOT ('+v+'°C) — TURN ON A/C NOW! လေအေးပေးစက် ဖွင့်ပါ!';}
+  else if(v<32){input.classList.add('cold');al.className='fb-alert cold';al.textContent='🟡 TOO COLD ('+v+'°C) — TURN ON HEATER! အပူပေးစက် ဖွင့်ပါ!';}
+  else{input.classList.add('tempok');al.className='fb-alert normal';al.textContent='✅ Temperature OK ('+v+'°C) — within 32–34°C range';}
+}
+
+function setToggle(key,val){
+  toggleState[key]=val;
+  document.getElementById(key+'-on').className='fb-toggle-btn'+(val==='on'?' on':'');
+  document.getElementById(key+'-off').className='fb-toggle-btn'+(val==='off'?' off':'');
+}
+
+// Submit
+function submitEntry(){
+  var date=document.getElementById('f-date').value;
+  var time=document.getElementById('f-time').value;
+  var temp=document.getElementById('f-temp').value;
+  if(!date||!time||!temp){showToast('⚠️ Date, time and temperature are required.');return;}
+  var entry={id:Date.now(),date:date,time:time,temp:parseFloat(temp),
+    hum:document.getElementById('f-hum').value||'',
+    outTemp:document.getElementById('f-out-temp').value||'',
+    outHum:document.getElementById('f-out-hum').value||'',
+    acOn:getACOnCount(),
+    acOff:getACOffCount(),
+    acUnits:acState.map(function(s,i){return{unit:i+1,status:s.status||'—',temp:s.temp||''}}),
+    acSummary:getACSummary(),
+    heaterFront:toggleState.hf,heaterBack:toggleState.hb,
+    dehum:toggleState.dehum,fans:toggleState.fan,
+    acState:acState.slice(), toggleState:JSON.parse(JSON.stringify(toggleState))};
+
+  // Save locally FIRST — this is the main fix. Previously nothing was
+  // persisted until the network call succeeded, so a failed/offline submit
+  // meant the reading was lost outright. Now it's durable no matter what.
+  var pending = loadPending();
+  pending.push(entry);
+  savePending(pending);
+  saveLastEntry(entry);
+  updatePendingBadge();
+
+  // Fields stay exactly as entered — no auto-clear. Next employee (or the
+  // same one) sees the last-submitted values until they overwrite them.
+  showToast('💾 Saved! Syncing to Google Sheet…');
+  pushEntry(entry, false);
+}
+
+function pushEntry(entry, silent){
+  var btn=document.getElementById('submit-btn');
+  if(!silent){ btn.textContent='Saving…'; btn.disabled=true; }
+  setSyncStatus('sending','syncing…');
+  // Use GET with encoded payload so Apps Script can send email alerts
+  var encodedEntry = encodeURIComponent(JSON.stringify(entry));
+  fetch(SCRIPT_URL+'?action=log&payload='+encodedEntry)
+    .then(function(r){ return r.text(); })
+    .then(function(){
+      markEntrySynced(entry.id);
+      setSyncStatus('ok','Live ✓ '+pad(new Date().getHours())+':'+pad(new Date().getMinutes()));
+      if(!silent){ showToast('✅ Synced to Google Sheet! Email alert sent.'); }
+      loadTodayReadings();
+    })
+    .catch(function(){
+      // Fallback: no-cors POST (saves data but no email)
+      fetch(SCRIPT_URL,{method:'POST',body:JSON.stringify(entry),mode:'no-cors'})
+        .then(function(){
+          markEntrySynced(entry.id);
+          setSyncStatus('ok','Live ✓ '+pad(new Date().getHours())+':'+pad(new Date().getMinutes()));
+          if(!silent) showToast('✅ Synced!');
+          loadTodayReadings();
+        })
+        .catch(function(){
+          setSyncStatus('err','Offline — will retry');
+          if(!silent) showToast('⚠️ Could not reach sheet — will retry automatically');
+        });
+    })
+    .finally(function(){
+      if(!silent){ btn.textContent='💾 Save to Google Sheet'; btn.disabled=false; }
+    });
+}
+
+function markEntrySynced(id){
+  var pending = loadPending().filter(function(e){ return e.id!==id; });
+  savePending(pending);
+  updatePendingBadge();
+}
+
+function updatePendingBadge(){
+  var pending = loadPending();
+  var el = document.getElementById('form-subtitle');
+  if(!el) return;
+  el.textContent = pending.length>0
+    ? '⏳ '+pending.length+' reading'+(pending.length>1?'s':'')+' waiting to sync…'
+    : 'Log a new entry';
+}
+
+function retryPending(){
+  var pending = loadPending();
+  pending.forEach(function(e){ pushEntry(e, true); });
+}
+
+function clearForm(){
+  ['f-temp','f-hum','f-out-temp','f-out-hum'].forEach(function(id){document.getElementById(id).value='';});
+  toggleState={dehum:'',hf:'',hb:'',fan:''};
+  ['dehum','hf','hb','fan'].forEach(function(k){
+    document.getElementById(k+'-on').className='fb-toggle-btn';
+    document.getElementById(k+'-off').className='fb-toggle-btn';
+  });
+  acState=[{status:'',temp:''},{status:'',temp:''},{status:'',temp:''},{status:'',temp:''},{status:'',temp:''},{status:'',temp:''}];
+  renderACUnits();
+  document.getElementById('temp-alert').className='fb-alert normal';
+  document.getElementById('temp-alert').textContent='— Ready for next entry';
+}
+
+// Prefills the form from the last submitted entry (local or from a
+// previous session) so fields stay populated until someone overwrites
+// them, instead of starting blank every time.
+function prefillFromLastEntry(){
+  var last = loadLastEntry();
+  if(!last) return;
+  if(last.temp!=null && last.temp!==''){ document.getElementById('f-temp').value=last.temp; checkTemp(document.getElementById('f-temp')); }
+  if(last.hum)     document.getElementById('f-hum').value=last.hum;
+  if(last.outTemp) document.getElementById('f-out-temp').value=last.outTemp;
+  if(last.outHum)  document.getElementById('f-out-hum').value=last.outHum;
+  if(last.toggleState){
+    toggleState = JSON.parse(JSON.stringify(last.toggleState));
+    ['dehum','hf','hb','fan'].forEach(function(k){
+      var v = toggleState[k];
+      var onEl=document.getElementById(k+'-on'), offEl=document.getElementById(k+'-off');
+      if(onEl) onEl.className='fb-toggle-btn'+(v==='on'?' on':'');
+      if(offEl) offEl.className='fb-toggle-btn'+(v==='off'?' off':'');
+    });
+  }
+  if(last.acState && last.acState.length===6){
+    acState = last.acState.slice();
+    renderACUnits();
+  }
+}
+
+// Load data
+function loadAllData(cb){
+  fetch(SCRIPT_URL+'?action=get&t='+Date.now(), {method:'GET', mode:'cors'})
+    .then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    })
+    .then(function(d){
+      allData=d.data||[];
+      setSyncStatus('ok','Connected');
+      if(cb)cb(allData);
+    })
+    .catch(function(err){
+      console.warn('Sheet fetch failed:',err);
+      setSyncStatus('err','Offline');
+      if(cb)cb([]);
+    });
+}
+
+function badgify(v){
+  var s=String(v||'').toLowerCase();
+  return s?'<span class="fb-badge '+(s==='on'?'fb-badge-on':'fb-badge-off')+'">'+esc(String(v).toUpperCase())+'</span>':'—';
+}
+
+// Today readings
+function loadTodayReadings(){
+  var today=document.getElementById('f-date').value||new Date().toISOString().slice(0,10);
+  loadAllData(function(data){
+    var todayData=data.filter(function(d){return d['Date']===today;});
+    document.getElementById('today-title').textContent='Today\'s readings ('+todayData.length+') — '+today;
+
+    // Update stat cards
+    if(todayData.length>0){
+      var last=todayData[todayData.length-1];
+      var lt=parseFloat(last['Temp (°C)']);
+      document.getElementById('sc-latest').textContent=lt+'°C';
+      document.getElementById('sc-latest').className='story-val '+(lt>34?'red':lt<32?'amber':'green');
+      document.getElementById('sc-hum').textContent=(last['Humidity (%)']||'—')+(last['Humidity (%)']?'%':'');
+    }
+    document.getElementById('sc-today').textContent=todayData.length;
+    var alerts=todayData.filter(function(d){var t=parseFloat(d['Temp (°C)']);return t>34||t<32;}).length;
+    document.getElementById('sc-alerts').textContent=alerts;
+
+    // Top bar alerts
+    var al='';
+    if(alerts>0){al='<span style="background:#fde8e8;color:#8c1c1c;padding:2px 9px;border-radius:10px;font-weight:700;font-size:11px">⚠️ '+alerts+' alert'+(alerts>1?'s':'')+'</span>';}
+    else if(todayData.length>0){al='<span style="background:#e6f4ea;color:#1a5c0c;padding:2px 9px;border-radius:10px;font-weight:700;font-size:11px">✅ All OK today</span>';}
+    else{al='<span style="font-size:12px;color:var(--fb-muted)">No readings yet</span>';}
+    var ta=document.getElementById('top-alerts'); if(ta) ta.innerHTML=al;
+
+    if(!todayData.length){document.getElementById('today-body').innerHTML='<div style="color:var(--fb-muted);font-size:14px;padding:8px 0">No readings logged for today yet. Add your first entry above!</div>';return;}
+    var html='<div style="overflow-x:auto"><table class="fb-table"><thead><tr><th>Time</th><th>Temp °C</th><th>Humidity</th><th>Out °C</th><th>A/C On</th><th>Htr Front</th><th>Htr Back</th><th>Fans</th></tr></thead><tbody>';
+    todayData.forEach(function(d){
+      var t=parseFloat(d['Temp (°C)']);
+      var tcls=t>34?'thot':t<32?'tcold':'tok';
+      html+='<tr><td>'+esc(d['Time'])+'</td><td class="'+tcls+'">'+t+'°C</td><td>'+(d['Humidity (%)']?d['Humidity (%)']+'%':'—')+'</td><td>'+(d['Outside Temp (°C)']?d['Outside Temp (°C)']+'°C':'—')+'</td><td>'+(d['AC On']||'—')+'</td><td>'+badgify(d['Heater Front'])+'</td><td>'+badgify(d['Heater Back'])+'</td><td>'+badgify(d['Fans'])+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('today-body').innerHTML=html;
+  });
+}
+
+// Daily History
+function loadDailyHistory(){
+  var wrap = document.getElementById('daily-history-wrap');
+  if(!wrap) return;
+  wrap.innerHTML='<div style="text-align:center;color:var(--fb-muted);padding:16px">Loading…</div>';
+  fetch(SCRIPT_URL+'?action=get_history&t='+Date.now(), {method:'GET', mode:'cors'})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var rows = d.data || [];
+      if(!rows.length){
+        wrap.innerHTML='<div style="text-align:center;color:var(--fb-muted);padding:20px">No daily history yet.<br>History is saved automatically each day at 5:30 PM.</div>';
+        return;
+      }
+      var html='<table style="width:100%;border-collapse:collapse;font-size:12px">'
+        +'<thead><tr style="background:#f0f2f5">'
+        +'<th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--fb-muted);border-bottom:2px solid var(--fb-border);white-space:nowrap">Date</th>'
+        +'<th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--fb-muted);border-bottom:2px solid var(--fb-border)">Readings</th>'
+        +'<th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--fb-muted);border-bottom:2px solid var(--fb-border)">Avg °C</th>'
+        +'<th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--fb-muted);border-bottom:2px solid var(--fb-border)">Min</th>'
+        +'<th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--fb-muted);border-bottom:2px solid var(--fb-border)">Max</th>'
+        +'<th style="padding:8px 10px;text-align:center;font-weight:700;color:var(--fb-muted);border-bottom:2px solid var(--fb-border)">Humidity%</th>'
+        +'<th style="padding:8px 10px;text-align:center;font-weight:700;color:#7c0000;border-bottom:2px solid var(--fb-border)">🔴 Hot</th>'
+        +'<th style="padding:8px 10px;text-align:center;font-weight:700;color:#856404;border-bottom:2px solid var(--fb-border)">🟡 Cold</th>'
+        +'<th style="padding:8px 10px;text-align:left;font-weight:700;color:var(--fb-muted);border-bottom:2px solid var(--fb-border)">Status</th>'
+        +'</tr></thead><tbody>';
+      rows.forEach(function(r){
+        var hot  = parseInt(r['Hot Alerts']||0);
+        var cold = parseInt(r['Cold Alerts']||0);
+        var avg  = parseFloat(r['Avg Temp (°C)']||0);
+        var status = hot>0?'🔴 '+hot+' hot alert'+(hot>1?'s':''):cold>0?'🟡 '+cold+' cold alert'+(cold>1?'s':''):'✅ OK';
+        var rowBg  = hot>0?'#fdeaea':cold>0?'#fff3cd':'#fff';
+        html+='<tr style="border-bottom:1px solid var(--fb-border);background:'+rowBg+'">'
+          +'<td style="padding:8px 10px;font-weight:600;white-space:nowrap">'+String(r['Date']||'').slice(0,10)+'</td>'
+          +'<td style="padding:8px 10px;text-align:center">'+( r['Readings']||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center;font-weight:700;color:'+(avg>34?'#7c0000':avg<32?'#856404':'#1a5c0c')+'">'+( r['Avg Temp (°C)']||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center">'+( r['Min Temp']||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center">'+( r['Max Temp']||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center">'+( r['Avg Humidity (%)']||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center;font-weight:700;color:#7c0000">'+( hot||'—')+'</td>'
+          +'<td style="padding:8px 10px;text-align:center;font-weight:700;color:#856404">'+( cold||'—')+'</td>'
+          +'<td style="padding:8px 10px;font-size:11px">'+status+'</td>'
+          +'</tr>';
+      });
+      html+='</tbody></table>';
+      wrap.innerHTML=html;
+    })
+    .catch(function(){ wrap.innerHTML='<div style="text-align:center;color:var(--fb-muted);padding:16px">Could not load history — check connection</div>'; });
+}
+
+// History
+function loadHistory(){
+  var from=document.getElementById('hist-from').value;
+  var to=document.getElementById('hist-to').value;
+  document.getElementById('hist-tbody').innerHTML='<tr><td colspan="12" style="text-align:center;color:var(--fb-muted);padding:20px">Loading…</td></tr>';
+  loadAllData(function(data){
+    if(from)data=data.filter(function(d){return d['Date']>=from;});
+    if(to)  data=data.filter(function(d){return d['Date']<=to;});
+    data=data.slice().reverse();
+    var temps=data.filter(function(d){return d['Temp (°C)']!='';}).map(function(d){return parseFloat(d['Temp (°C)']);});
+    var avg=temps.length?(temps.reduce(function(a,b){return a+b;},0)/temps.length).toFixed(1):'-';
+    var alerts=temps.filter(function(t){return t>34||t<32;}).length;
+    document.getElementById('hist-stats').innerHTML=
+      sc('Total readings',data.length,'blue')+sc('Avg temp',avg+'°C','','')+
+      sc('Peak',(temps.length?Math.max.apply(null,temps):'-')+'°C','red','')+
+      sc('Alerts',alerts,'amber','');
+    var rows='';
+    if(!data.length){rows='<tr><td colspan="12" style="text-align:center;color:var(--fb-muted);padding:20px">No data found.</td></tr>';}
+    data.forEach(function(d){
+      var t=parseFloat(d['Temp (°C)']);
+      var tcls=t>34?'thot':t<32?'tcold':'tok';
+      rows+='<tr><td>'+esc(d['Date'])+'</td><td>'+esc(d['Time'])+'</td><td class="'+tcls+'">'+t+'°C</td><td>'+(d['Humidity (%)']?d['Humidity (%)']+'%':'—')+'</td><td>'+(d['Outside Temp (°C)']?d['Outside Temp (°C)']+'°C':'—')+'</td><td>'+(d['Outside Humidity (%)']?d['Outside Humidity (%)']+'%':'—')+'</td><td>'+(d['AC On']||'—')+'</td><td>'+(d['AC Off']||'—')+'</td><td>'+badgify(d['Heater Front'])+'</td><td>'+badgify(d['Heater Back'])+'</td><td>'+badgify(d['Dehumidifier'])+'</td><td>'+badgify(d['Fans'])+'</td></tr>';
+    });
+    document.getElementById('hist-tbody').innerHTML=rows;
+  });
+}
+
+function sc(label,val,col){return '<div class="story-card"><div class="story-val '+(col||'')+'">'+val+'</div><div class="story-label">'+label+'</div></div>';}
+
+function clearHistFilter(){
+  document.getElementById('hist-from').value='';
+  document.getElementById('hist-to').value='';
+  loadHistory();
+}
+
+function exportCSV(){
+  var rows=[['Date','Time','Temp(C)','Humidity(%)','OutTemp(C)','OutHumidity(%)','AC_On','AC_Off','HeaterFront','HeaterBack','Dehumidifier','Fans']];
+  allData.forEach(function(d){rows.push([d['Date'],d['Time'],d['Temp (°C)'],d['Humidity (%)'],d['Outside Temp (°C)'],d['Outside Humidity (%)'],d['AC On'],d['AC Off'],d['Heater Front'],d['Heater Back'],d['Dehumidifier'],d['Fans']]);});
+  var csv=rows.map(function(r){return r.join(',');}).join('\n');
+  var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='SRR_CrixTemp_'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  showToast('✅ CSV exported!');
+}
+
+// Graphs
+var COPTS={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#65676b',font:{size:12}}},tooltip:{backgroundColor:'#fff',borderColor:'#dde1e7',borderWidth:1,titleColor:'#050505',bodyColor:'#65676b'}},scales:{x:{ticks:{color:'#65676b',maxTicksLimit:10},grid:{color:'rgba(0,0,0,0.05)'}},y:{ticks:{color:'#65676b'},grid:{color:'rgba(0,0,0,0.05)'}}}};
+
+function destroyChart(id){if(charts[id]){charts[id].destroy();delete charts[id];}}
+
+function setDays(n){
+  graphDays=n;
+  ['7','14','30','0'].forEach(function(d){
+    var el=document.getElementById('gf-'+d);
+    el.className=String(n)===d?'fb-btn fb-btn-sm':'fb-btn-ghost fb-btn-sm';
+    el.style.fontSize='12px';
+  });
+  renderGraphs();
+}
+
+function renderGraphs(){
+  loadAllData(function(data){
+    var gdata=data;
+    if(graphDays>0){
+      var cutoff=new Date();cutoff.setDate(cutoff.getDate()-graphDays);
+      var cutStr=cutoff.toISOString().slice(0,10);
+      gdata=data.filter(function(d){return d['Date']>=cutStr;});
+    }
+    var labels=gdata.map(function(d){return d['Date'].slice(5)+' '+d['Time'];});
+    var temps=gdata.map(function(d){return d['Temp (°C)']?parseFloat(d['Temp (°C)']):null;});
+    var hums=gdata.map(function(d){return d['Humidity (%)']?parseFloat(d['Humidity (%)']):null;});
+    var outT=gdata.map(function(d){return d['Outside Temp (°C)']?parseFloat(d['Outside Temp (°C)']):null;});
+    var validT=temps.filter(function(t){return t!=null;});
+    var avg=validT.length?(validT.reduce(function(a,b){return a+b;},0)/validT.length).toFixed(1):'-';
+    var alerts=validT.filter(function(t){return t>34||t<32;}).length;
+    document.getElementById('graph-stats').innerHTML=
+      sc('Data points',gdata.length,'blue')+sc('Avg temp',avg+'°C','','')+
+      sc('Peak',(validT.length?Math.max.apply(null,validT):'-')+'°C','red','')+
+      sc('Alerts',alerts,'amber','');
+
+    destroyChart('temp');
+    charts['temp']=new Chart(document.getElementById('chart-temp').getContext('2d'),{type:'line',data:{labels:labels,datasets:[{label:'Room temp °C',data:temps,borderColor:'#1877f2',backgroundColor:'rgba(24,119,242,0.08)',tension:.35,pointRadius:2,fill:true,borderWidth:2},{label:'Max 34°C',data:gdata.map(function(){return 34;}),borderColor:'rgba(250,62,62,0.5)',borderDash:[6,4],pointRadius:0,borderWidth:1.5},{label:'Min 32°C',data:gdata.map(function(){return 32;}),borderColor:'rgba(247,185,40,0.5)',borderDash:[6,4],pointRadius:0,borderWidth:1.5}]},options:JSON.parse(JSON.stringify(COPTS))});
+
+    destroyChart('hum');
+    charts['hum']=new Chart(document.getElementById('chart-hum').getContext('2d'),{type:'line',data:{labels:labels,datasets:[{label:'Humidity %',data:hums,borderColor:'#1877f2',backgroundColor:'rgba(24,119,242,0.08)',tension:.35,pointRadius:2,fill:true,borderWidth:2}]},options:JSON.parse(JSON.stringify(COPTS))});
+
+    destroyChart('compare');
+    charts['compare']=new Chart(document.getElementById('chart-compare').getContext('2d'),{type:'line',data:{labels:labels,datasets:[{label:'Inside temp',data:temps,borderColor:'#1877f2',tension:.35,pointRadius:2,borderWidth:2},{label:'Outside temp',data:outT,borderColor:'#f7b928',tension:.35,pointRadius:2,borderWidth:2,borderDash:[5,4]}]},options:JSON.parse(JSON.stringify(COPTS))});
+
+    var buckets={};
+    data.forEach(function(d){var h=d['Time']?String(d['Time']).slice(0,2):'00';if(!buckets[h])buckets[h]=[];if(d['Temp (°C)'])buckets[h].push(parseFloat(d['Temp (°C)']));});
+    var hl=[],ha=[];
+    for(var h=0;h<24;h++){var hk=pad(h);hl.push(hk+':00');var b=buckets[hk]||[];ha.push(b.length?(b.reduce(function(a,c){return a+c;},0)/b.length).toFixed(1):null);}
+    destroyChart('hourly');
+    charts['hourly']=new Chart(document.getElementById('chart-hourly').getContext('2d'),{type:'bar',data:{labels:hl,datasets:[{label:'Avg temp °C',data:ha,backgroundColor:ha.map(function(v){return v>34?'rgba(250,62,62,0.75)':v<32?'rgba(247,185,40,0.75)':'rgba(66,183,42,0.75)';}),borderRadius:4}]},options:JSON.parse(JSON.stringify(COPTS))});
+  });
+}
+
+// Init
+prefillFromLastEntry();
+updatePendingBadge();
+showPage('entry');
+loadTodayReadings();
+startLivePolling();
+</script>
+</body>
+</html>
